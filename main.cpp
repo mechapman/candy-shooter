@@ -19,7 +19,7 @@ using namespace cv;
 void detectAndDisplay( Mat frame );
 
 // Global variables
-int threshold_value = 115;
+int threshold_value = 85;
 Mat mouthROI;
 
 String face_cascade_name = "/Users/mchapman/Downloads/opencv-3.0.0/data/haarcascades/haarcascade_frontalface_alt.xml";
@@ -73,7 +73,7 @@ void detectAndDisplay( Mat frame )
     equalizeHist( frame_gray, frame_gray );
     
     //-- Detect faces
-    face_cascade.detectMultiScale( frame_gray, faces, 1.1, 2, 0|CASCADE_SCALE_IMAGE, Size(30, 30) );
+    face_cascade.detectMultiScale( frame_gray, faces, 1.1, 2, 0|CASCADE_SCALE_IMAGE, Size(100, 100) );
 
     for ( size_t i = 0; i < faces.size(); i++ )
     {
@@ -84,18 +84,41 @@ void detectAndDisplay( Mat frame )
         Mat faceROI = frame_gray( faces[i] );
         
         //ROI where mouth will be
-        Rect mouth_rect = Rect(faces[i].x + (0.35*faces[i].width), faces[i].y + (0.75*faces[i].height), (0.35*faces[i].width), (0.25*faces[i].height));
+        Rect mouth_rect = Rect(faces[i].x + (0.35*faces[i].width), faces[i].y + (0.75*faces[i].height), (0.35*faces[i].width), (0.3*faces[i].height));
         
         //extract mouth from face
         mouthROI = frame_gray( mouth_rect );
         
-        threshold( mouthROI, mouthROI, threshold_value, 255, 0);
+        threshold( mouthROI, mouthROI, threshold_value, 255, 1);
         
-        //display mouth ROI
-        imshow("mouth", mouthROI);
+        //hold contour information
+        vector<vector<Point> > contours;
+        vector<Vec4i> hierarchy;
+        Mat contourOutput = mouthROI.clone();
+        Mat drawing = Mat::zeros( mouthROI.size(), CV_8UC3 );
+
+        //search for contours
+        findContours(contourOutput, contours, CV_RETR_LIST, CV_CHAIN_APPROX_NONE);
+
+        //draw contours, find area of largest contour
+        int max_area = 0;
+        for( int i = 0; i< contours.size(); i++ )
+        {
+            if (contourArea(contours[i]) > max_area){
+                max_area = contourArea(contours[i]);
+            }
+            Scalar color = Scalar( 0, 255, 0 );
+            drawContours( drawing, contours, i, color, 2, 8, hierarchy, 0, Point() );
+        }
+
+        //display mouth ROI if mouth is open
+        if (max_area > 2000){
+            imshow("drawing", drawing);
+            printf("mouth open, max area = %d\n", max_area);
+        }
 
         //TODO:
-        // detect presence of open mouth
+        // add slider bar to adjust thresholds
         // draw circle around mouth in frame
         // how to send signl via USB?
     }
